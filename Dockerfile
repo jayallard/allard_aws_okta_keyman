@@ -30,3 +30,6 @@ RUN cat functions.sh >> ~/.bashrc
 RUN rm functions.sh
 
 CMD [ "bash" ]
+
+# to build
+# docker build . -t allard/aws_okta_keyman
