@@ -19,17 +19,11 @@ RUN pip install aws_okta_keyman \
     && rm -rf aws  \
     && rm awscliv2.zip
 
-COPY ForContainer/functions.sh .
-COPY ForContainer/login.sh .
-
-RUN chmod +x login.sh
+COPY ForContainer/startup.sh .
 
 # add the functions to the bash profile.
 # then delete functions.
-RUN cat functions.sh >> ~/.bashrc
-RUN rm functions.sh
+RUN cat startup.sh >> ~/.bashrc
+RUN rm startup.sh
 
 CMD [ "bash" ]
-
-# to build
-# docker build . -t allard/aws_okta_keyman

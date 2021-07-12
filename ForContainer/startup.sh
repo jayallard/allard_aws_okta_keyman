@@ -2,12 +2,7 @@ function login {
     echo "---------------------------------------------------------"
     echo " Login "
     echo "---------------------------------------------------------"
-    echo " You will be prompted for your okta password. "
-    echo " Okta will send a push to your phone. "
-    echo " Verify the login on your phone. "
-    echo " If you have access to multiple aws orgs, you will"
-    echo " Upon completion, you are ready to run aws commands."
-    echo " Run 'test' to confirm connectivity. "
+    echo " Running aws_okta_keyman "
     echo " "
     # $1 = org, $2 = user name
     if [[ -z $1 || -z $2 ]];
@@ -60,9 +55,41 @@ function h {
     echo "    creds - show your temporary access key and secret "
     echo "    copyCredsToHost - copies the aws credentials file to the host machine "
     echo " "
-    echo " Once login is complete, you can use the aws cli. "
-    echo " "
 }
 
-# show the help screen
-h
+echo MODE=$MODE
+
+# if mode is COPY_TO_HOST, then LOGIN, COPY CREDS to host, and exit.
+if [[ $MODE == 'COPY_TO_HOST' ]];
+then
+    # make sure required env variables are set
+    if [[ -z $OKTA_ORG || -z $OKTA_USER ]];
+    then
+        echo "ERROR: OKTA_ORG and OKTA_USER environment variables must be set."
+        exit 1
+    fi
+    
+    # login
+    aws_okta_keyman -o $OKTA_ORG -u $OKTA_USER
+    result=$?
+
+    # if login failed... sad face.
+    if [ $result -eq 0 ];
+    then
+        echo "Login Success."
+        cp ~/.aws/credentials /usr/src/app/host/credentials
+        echo "Credentials have been copied to the host."
+        exit 0;
+    else
+        echo "Login failed."
+        exit $result
+    fi
+fi;
+
+
+# if the cred env variables are set then login.
+# otherwise, skip it.
+if [[ -n $OKTA_ORG && -n $OKTA_USER ]];
+then
+    aws_okta_keyman -o $OKTA_ORG -u $OKTA_USER
+fi
