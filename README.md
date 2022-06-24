@@ -6,74 +6,52 @@ This container uses the the `aws_okta_keyman` client to login to AWS. This is ju
 - License: <https://github.com/nathan-v/aws_okta_keyman/blob/master/LICENSE.txt>
 - License: <https://github.com/nathan-v/aws_okta_keyman/blob/master/LICENSE_MIT.txt>
 
-## Usage
+The container provides `aws_okta_keyman` and the `aws cli`. Use them any way you like. Examples are provided.
 
-There are two ways to use this container.
+## Examples
 
-- It provides a terminal with the AWS client ready to use. If you just need the AWS CLI, then everything you need is provided.
-- If you want to log your host machine into AWS, then the container will log you in and copy the credentials file to the host.
+### Work Within the Container
 
-### AWS Cli
-
-USE CASE: You need the AWS CLI.
-
-This will:
-
-- Create a container
-- Login to AWS using AWS_OKTA_KEYMAN (if credentials are specified)
-- Provide a bash terminal, with the AWS CLI installed.
-
-Change:
-
-- OKTA_ORG
-- OKTA_USER
-- Optionally, the left part of the `-v` parameter. `%cd%` is windows syntax for Current Folder.
+If you need an aws prompt, and no host resources, the launch the container, login, and do your aws work.
 
 ```bash
-docker run -it -e OKTA_ORG=MyOrg -e OKTA_USER=MyUserName jayallard/aws_okta_keyman
+docker run -it -e OKTA_ORG=MyOktaOrg -e OKTA_USER=MyOktaUserName jayallard/aws_okta_keyman
 ```
 
-If you omit either environment variable, it will not attempt to log you in. You may login using the `login` alias.
+That will prompt you to login to Okta. When complete, the bash shell will launch, and `aws` is ready to go.
 
-```bash
-login Org UserName
-```
+### Use the Container to Provide AWS Credentials to the Host
 
-### Login Host
+In this example (which is my normal usage):
 
-USE CASE: You want to use the AWS CLI on your machine, not within a container.
+- the aws cli is installed on the host, but aws_okta_keyman is not
+- run the container, and login
+- the container will put the resulting credential into your host aws folder
+- You can use the aws_okta_keyman `--reup` option to stay alive and update the credentials periodically.
 
-This will:
+`aws_okta_keyman` will stay active, and will periodically refresh your credentials.
 
-- Create a container
-- Login to AWS using AWS_OKTA_KEYMAN
-- Copy the AWS credentials file from the container to the host
-- exit
+`docker run -it -v "/home/jaya/.aws":/root/.aws --entrypoint="aws_okta_keyman" jayallard/aws_okta_keyman -o MY_OKTA_ORG -u MY_EMAIL_ADDRESS --reup`
 
-Modify the command. Set:
+Of course, creating an alias or a script will be a lot easier than dealing with that every time you need to login.
 
-- OKTA_ORG
-- OKTA_USER
-- The path of your `.aws` folder.
+Explanation:
 
-Note that `MODE=COPY_TO_HOST` is required. This instructs the container to copy the credentials to the host (folder specified by `-v`), then exit.
+- -v - map your local host aws folder (left) to the container aws folder (right). When the container writes the credentials, it actually writes them to your host machine.
+- entrypoint - run `aws_okta_keyman`
+- `jayallard/aws_okta_keyman` - the docker image name
+- the aws_okta_keyman parameters follow the image name
+  - -o - your okta organization
+  - -u - the email address that you login to OKTA with
+  - --reup - aws_okta_keyman will keep running, and will periodically refresh your aws credentials. Eventually, you'll have to authenticate again, but it'll be less frequently than you otherwise would need to.
 
-```bash
-docker run -it -v "/home/allard/.aws":/usr/src/app/host -e OKTA_ORG=MyOrg -e OKTA_USER=MyUserName -e MODE=COPY_TO_HOST jayallard/aws_okta_keyman
-```
+## Shell Aliases
 
-## Scripts
+The container provides some aliases that might be helpful.
 
-If you use this image regularly, creating scripts with the docker commands will be more convenient than memorizing or pasting the commands every time you need them.
+type `h` to see what is available.
 
-For example:
-
-- `aws-cli.cmd` - to open the terminal
-  - ie: `docker run -v "/home/allard/.aws":/usr/src/app/host -it -e OKTA_ORG=MyOrg -e OKTA_USER=MyUserName jayallard/aws_okta_keyman`
-- `aws-login.cmd` - change the command to mount the docker volume to the .aws folder rater than switch to it every time you need to login.
-  - ie: `docker run -it -v "/home/allard/.aws":/usr/src/app/host -e OKTA_ORG=MyOrg -e OKTA_USER=MyUserName -e MODE=COPY_TO_HOST jayallard/aws_okta_keyman`
-
-This step is essential, at least for the author, in order to make the AWS login trivial.
+These are minor things that are meant to serve as shortcuts.
 
 ## Troubleshooting
 
@@ -88,3 +66,15 @@ One way to fix:
 - open powershell as an admin
 - `Restart-Service LxssManager`
 - restart docker
+
+## Release Notes
+
+### Version 2 - 6/24/2022
+
+Breaking change.
+
+The previous version used to login the host by copying the aws credentials file from the container to the host. That worked well for me, until I wanted to add `--reup` to the aws_okta_keyman command. `--reup` puts the program in a loop, so the program never ends, and the file never gets copied up to the host.
+
+As a result, I changed the approach. Instead of copying from the guest to the host, it now maps the host `aws` folder to the container. Now, when `aws_okta_keyman` sets the credentials, it is written to the host directly. To aws_okta_keyman, it's just the local .aws folder. But, in reality, it's the hosts .aws folder.
+
+As it turns out, this is a much better solution anyway, and it's how it should've been done from the beginning.
